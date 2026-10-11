@@ -253,3 +253,37 @@ impl SetType {
         }
     }
 }
+
+#[duplicate_item(
+    multifield deltafield multi_trnsp_all_set_latch     multi_trnsp_one_set_latch    ;
+    [v_multi]  [buttons]  [v_multi_trnsp_all_set_latch] [v_multi_trnsp_one_set_latch];
+    [f_multi]  [buttons]  [f_multi_trnsp_all_set_latch] [f_multi_trnsp_one_set_latch];
+    [c_multi]  [combos]   [c_multi_trnsp_all_set_latch] [c_multi_trnsp_one_set_latch];
+)]
+impl Engine<Edit> {
+    pub fn multi_trnsp_all_set_latch(&mut self, set_idx: usize, trnsp_idx: usize, latch: bool) -> bool {
+        if set_idx < self.multifield.len() && trnsp_idx < self.multifield[set_idx].trnsp_all.len() {
+            self.multifield[set_idx].trnsp_all[trnsp_idx].latch = latch;
+            true
+        } else {
+            false
+        }
+    }
+    pub fn multi_trnsp_one_set_latch(
+        &mut self,
+        set_idx: usize,
+        del_idx: usize,
+        trnsp_idx: usize,
+        latch: bool,
+    ) -> bool {
+        if set_idx < self.multifield.len()
+            && del_idx < self.multifield[set_idx].deltafield.len()
+            && trnsp_idx < self.multifield[set_idx].deltafield[del_idx].trnsp_one.len()
+        {
+            self.multifield[set_idx].deltafield[del_idx].trnsp_one[trnsp_idx].latch = latch;
+            true
+        } else {
+            false
+        }
+    }
+}

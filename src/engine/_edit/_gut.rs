@@ -14,6 +14,9 @@ impl Engine<Edit> {
             self.c_multi
                 .iter_mut()
                 .for_each(|element| element.insert_gut(g_idx));
+            self.analog_mods
+                .iter_mut()
+                .for_each(|element| element.x_delta.insert(g_idx, 0.0));
             true
         } else {
             false
@@ -31,6 +34,11 @@ impl Engine<Edit> {
             self.c_multi
                 .iter_mut()
                 .for_each(|element| element.remove_gut(g_idx));
+            self.analog_mods
+                .iter_mut()
+                .for_each(|element| {
+                    element.x_delta.remove(g_idx);
+                });
             true
         } else {
             false
@@ -101,15 +109,9 @@ impl Engine<Edit> {
             false
         }
     }
-    pub(crate) fn check_pressed_lengths(&self) -> Result<(), String> {
-        for i in 0..self.v_multi.len() {
-            self.v_multi[i].check_pressed_lengths()?;
-        }
-        for i in 0..self.f_multi.len() {
-            self.f_multi[i].check_pressed_lengths()?;
-        }
+    pub(crate) fn check_combo_lengths(&self) -> Result<(), String> {
         for i in 0..self.c_multi.len() {
-            self.c_multi[i].check_pressed_lengths()?;
+            self.c_multi[i].check_combo_lengths()?;
         }
         Ok(())
     }
@@ -129,7 +131,7 @@ impl Engine<Edit> {
 
 #[duplicate_item(
     gut_change_delta_out         d_out       d_del_val   del_type   gut_change_minmax        minmaxval minmax_field      iscomparedto                gut_trnsp_change_deltas     d_type d_field;
-    [gut_change_index_delta_out] [index_out] [i_del_val] [usize]    [gut_change_min_pressed] [min_val] [gut_min_pressed] [le(&self.gut_max_pressed)] [gut_trnsp_change_i_deltas] [i32]    [i_delta];
+    [gut_change_index_delta_out] [index_out] [i_del_val] [i32]      [gut_change_min_pressed] [min_val] [gut_min_pressed] [le(&self.gut_max_pressed)] [gut_trnsp_change_i_deltas] [i32]    [i_delta];
     [gut_change_extra_delta_out] [extra_out] [x_del_val] [f64]      [gut_change_max_pressed] [max_val] [gut_max_pressed] [ge(&self.gut_min_pressed)] [gut_trnsp_change_x_deltas] [f64]    [x_delta];
 )]
 impl Engine<Edit> {
@@ -171,8 +173,6 @@ impl SetType {
         for del_idx in 0..self.deltafield.len() {
             self.deltafield[del_idx].i_delta.insertremove_i;
             self.deltafield[del_idx].x_delta.insertremove_x;
-            self.deltafield[del_idx].i_mem.insertremove_i;
-            self.deltafield[del_idx].x_mem.insertremove_x;
             for to in 0..self.deltafield[del_idx].trnsp_one.len() {
                 self.deltafield[del_idx].trnsp_one[to]
                     .i_delta
@@ -182,8 +182,6 @@ impl SetType {
                     .insertremove_x;
             }
         }
-        self.i_mem.insertremove_i;
-        self.x_mem.insertremove_x;
         for ta in 0..self.trnsp_all.len() {
             self.trnsp_all[ta].i_delta.insertremove_i;
             self.trnsp_all[ta].x_delta.insertremove_x;
@@ -215,15 +213,11 @@ impl SetType {
         for d in 0..self.field.len() {
             assert_eq_expr!(self.field[d].i_delta.len(), guts_len);
             assert_eq_expr!(self.field[d].x_delta.len(), guts_len);
-            assert_eq_expr!(self.field[d].i_mem.len(), guts_len);
-            assert_eq_expr!(self.field[d].x_mem.len(), guts_len);
             for to in 0..self.field[d].trnsp_one.len() {
                 assert_eq_expr!(self.field[d].trnsp_one[to].i_delta.len(), guts_len);
                 assert_eq_expr!(self.field[d].trnsp_one[to].x_delta.len(), guts_len);
             }
         }
-        assert_eq_expr!(self.i_mem.len(), guts_len);
-        assert_eq_expr!(self.x_mem.len(), guts_len);
         for ta in 0..self.trnsp_all.len() {
             assert_eq_expr!(self.trnsp_all[ta].i_delta.len(), guts_len);
             assert_eq_expr!(self.trnsp_all[ta].x_delta.len(), guts_len);
@@ -232,16 +226,8 @@ impl SetType {
     }
 }
 
-impl VFSet {
-    pub(crate) fn check_pressed_lengths(&self) -> Result<(), String> {
-        assert_eq_expr!(self.pressed.len(), self.buttons.len());
-        Ok(())
-    }
-}
-
 impl ComboSet {
-    pub(crate) fn check_pressed_lengths(&self) -> Result<(), String> {
-        assert_eq_expr!(self.pressed.len(), self.buttons.len());
+    pub(crate) fn check_combo_lengths(&self) -> Result<(), String> {
         for c in 0..self.combos.len() {
             assert_eq_expr!(self.combos[c].combo.len(), self.buttons.len());
         }
@@ -262,5 +248,32 @@ impl Engine<Edit> {
         } else {
             false
         }
+    }
+}
+
+impl Engine<Edit> {
+    pub fn gut_set_retrigger(&mut self, g_idx: usize, retrigger: bool) -> bool {
+        if g_idx < self.guts.len() {
+            self.guts[g_idx].retrigger = retrigger;
+            true
+        } else {
+            false
+        }
+    }
+    pub fn gut_trnsp_set_latch(&mut self, g_idx: usize, trnsp_idx: usize, latch: bool) -> bool {
+        if g_idx < self.guts.len() && trnsp_idx < self.guts[g_idx].trnsp_gut.len() {
+            self.guts[g_idx].trnsp_gut[trnsp_idx].latch = latch;
+            true
+        } else {
+            false
+        }
+    }
+    pub fn set_index_delta_bool(&mut self, enabled: bool) -> bool {
+        self.index_delta_bool = enabled;
+        true
+    }
+    pub fn set_extra_delta_bool(&mut self, enabled: bool) -> bool {
+        self.extra_delta_bool = enabled;
+        true
     }
 }

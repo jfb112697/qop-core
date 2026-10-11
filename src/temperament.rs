@@ -8,7 +8,6 @@ use serde::{Deserialize, Serialize};
 use std::{fmt::Debug, marker::PhantomData};
 
 nest! {
-    #[repr(C)]*
     #[derive(Debug, Clone, Default, Serialize, Deserialize)]*
     pub struct Temperament<Mode = Edit> {
         pub(crate) _mode: PhantomData<Mode>,
@@ -124,25 +123,27 @@ impl<Mode> Temperament<Mode> {
     // `intervals[k]` is the position of note class k inside one octave, measured in steps of
     // 1/intervals.len() of that octave, so 12 equal notes are 0.0..=11.0 and `extra` is in the same unit.
     // An index counts note classes upward; `reference_note` sounds at `tuning_hz`.
-    pub fn frequency(&self, index: usize, extra: f64) -> Option<f64> {
-        let n = self.intervals.len();
+    pub fn frequency(&self, index: i32, extra: f64) -> Option<f64> {
+        let n = self.intervals.len() as i64;
         if n == 0 {
             return None;
         }
-        let octaves = (index / n) as f64 - (self.reference_note / n) as f64;
-        let steps = octaves * n as f64 + self.intervals[index % n]
-            - self.intervals[self.reference_note % n]
+        let (index, reference) = (index as i64, self.reference_note as i64);
+        let octaves = index.div_euclid(n) - reference.div_euclid(n);
+        let steps = (octaves * n) as f64 + self.intervals[index.rem_euclid(n) as usize]
+            - self.intervals[reference.rem_euclid(n) as usize]
             + extra;
         Some(self.tuning_hz * self.octave_scalar_factor.powf(steps / n as f64))
     }
 
-    pub fn note_name(&self, index: usize) -> Option<String> {
-        let n = self.intervals.len();
-        if n == 0 || self.note_class_set.len() != n {
+    pub fn note_name(&self, index: i32) -> Option<String> {
+        let n = self.intervals.len() as i64;
+        if n == 0 || self.note_class_set.len() as i64 != n {
             return None;
         }
-        let octave = self.octave_label + (index / n) as i64 - (self.reference_note / n) as i64;
-        Some(format!("{}{}", self.note_class_set[index % n], octave))
+        let (index, reference) = (index as i64, self.reference_note as i64);
+        let octave = self.octave_label + index.div_euclid(n) - reference.div_euclid(n);
+        Some(format!("{}{}", self.note_class_set[index.rem_euclid(n) as usize], octave))
     }
 }
 

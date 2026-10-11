@@ -32,6 +32,9 @@ impl Engine<Edit> {
                 operation(&mut self.guts[g].trnsp_gut[tg].triggers);
             }
         }
+        for t in 0..self.analog_triggers.len() {
+            operation(&mut self.analog_triggers[t].togs);
+        }
         operation(&mut self.gut_holds.sustain.togs);
         operation(&mut self.gut_holds.inv_sustain.togs);
         operation(&mut self.gut_holds.sostenuto.togs);
@@ -120,6 +123,12 @@ impl Engine<Edit> {
                         self.guts[g].trnsp_gut[tg].triggers[t], self.dig_inputs.len()
                     )
                 }
+            }
+        }
+
+        for t in 0..self.analog_triggers.len() {
+            for k in 0..self.analog_triggers[t].togs.len() {
+                assert_lt_expr!(self.analog_triggers[t].togs[k], self.dig_inputs.len())
             }
         }
 

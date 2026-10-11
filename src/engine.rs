@@ -2,23 +2,50 @@ mod _access;
 mod _edit;
 mod _play;
 
+pub use _play::{NoteEvent, Player, Voice};
+
 use crate::*;
 use better_default::Default;
-use duplicate::duplicate_item;
 use nestify::nest;
 use serde::{Deserialize, Serialize};
 use std::{fmt::Debug, marker::PhantomData};
-use crate::key::Key;
+use crate::key::{Analog, Key};
 
 nest! {
-    #[repr(C)]*
     #[derive(Debug, Clone, Default, Serialize, Deserialize)]*
     pub struct Engine<Mode = Edit> {
         pub(crate) _mode: PhantomData<Mode>,
         pub name: String,
         pub description: String,
         pub(crate) dig_inputs: Vec<Key>,
+        pub(crate) analog_inputs: Vec<Analog>,
+        pub(crate) analog_triggers: Vec<
+            pub struct AnalogTrigger {
+                pub name: String,
+                pub description: String,
+                pub(crate) input: usize,
+                pub(crate) togs: Vec<usize>,
+                #[default(0.1f64)]
+                pub(crate) low: f64,
+                #[default(0.6f64)]
+                pub(crate) high: f64,
+                #[default(0.005f64)]
+                pub(crate) fast_secs: f64,
+                #[default(0.25f64)]
+                pub(crate) slow_secs: f64,
+            }
+        >,
+        pub(crate) analog_mods: Vec<
+            pub struct AnalogMod {
+                pub name: String,
+                pub description: String,
+                pub(crate) input: usize,
+                pub(crate) x_delta: Vec<f64>,
+            }
+        >,
+        #[default(true)]
         pub(crate) index_delta_bool: bool,
+        #[default(true)]
         pub(crate) extra_delta_bool: bool,
         pub(crate) gut_max_pressed: usize,
         pub(crate) gut_min_pressed: usize,
@@ -30,7 +57,6 @@ nest! {
                         pub name: String,
                         pub description: String,
                         pub(crate) togs: Vec<usize>,
-                        pub(crate) pressed: bool
                     },
                 pub(crate) inv_sustain: HoldTog,
                 pub(crate) sostenuto: HoldTog,
@@ -42,14 +68,13 @@ nest! {
                 pub name: String,
                 pub description: String,
                 pub(crate) togs: Vec<usize>,
-                pub(crate) pressed: bool,
-                pub(crate) index_out: usize,
+                pub(crate) index_out: i32,
+                pub(crate) retrigger: bool,
                 pub(crate) extra_out: f64,
-                pub(crate) i_mem: i32,
-                pub(crate) x_mem: f64,
                 pub(crate) trnsp_gut: Vec<
                     pub struct Trnsp {
                         pub(crate) triggers: Vec<usize>,
+                        pub(crate) latch: bool,
                         pub(crate) i_delta: i32,
                         pub(crate) x_delta: f64,
                     }
@@ -70,19 +95,14 @@ nest! {
                         pub(crate) trnsp_one: Vec<
                             pub struct MulTrnsp {
                                 pub(crate) triggers: Vec<usize>,
+                                pub(crate) latch: bool,
                                 pub(crate) i_delta: Vec<i32>,
                                 pub(crate) x_delta: Vec<f64>,
                             }
                         >,
-                        pub(crate) i_mem: Vec<i32>,
-                        pub(crate) x_mem: Vec<f64>,
                     }
                 >,
-                #[default(vec![false])]
-                pub(crate) pressed: Vec<bool>,
                 pub(crate) trnsp_all: Vec<MulTrnsp>,
-                pub(crate) i_mem: Vec<i32>,
-                pub(crate) x_mem: Vec<f64>,
                 pub(crate) holds: HoldBtns,
                 pub(crate) max_pressed: usize,
                 pub(crate) min_pressed: usize,
@@ -102,8 +122,6 @@ nest! {
                         pub(crate) togs: Vec<usize>,
                     }
                 >,
-                #[default(vec![false])]
-                pub(crate) pressed: Vec<bool>,
                 pub(crate) combos: Vec<
                     pub struct Combo {
                         pub name: String,
@@ -112,14 +130,10 @@ nest! {
                         pub(crate) i_delta: Vec<i32>,
                         pub(crate) x_delta: Vec<f64>,
                         pub(crate) trnsp_one: Vec<MulTrnsp>,
-                        pub(crate) i_mem: Vec<i32>,
-                        pub(crate) x_mem: Vec<f64>,
                     }
                 >,
                 pub(crate) holds: HoldBtns,
                 pub(crate) trnsp_all: Vec<MulTrnsp>,
-                pub(crate) i_mem: Vec<i32>,
-                pub(crate) x_mem: Vec<f64>,
                 pub(crate) max_pressed: usize,
                 pub(crate) min_pressed: usize,
                 pub(crate) radio_mode: bool,
@@ -131,18 +145,22 @@ nest! {
 impl Engine<Edit> {
     pub fn validate(&self) -> Result<(), String> {
         self.check_multi_delta_lengths()?;
-        self.check_pressed_lengths()?;
+        self.check_combo_lengths()?;
+        self.check_analog_invariants()?;
         self.check_digitalref_invariants()
     }
 
     pub fn to_play(&self) -> Result<Engine<Play>, String> {
         self.validate()?;
 
-        let mut play = Engine {
+        Ok(Engine {
             _mode: PhantomData,
             name: self.name.clone(),
             description: self.description.clone(),
             dig_inputs: self.dig_inputs.clone(),
+            analog_inputs: self.analog_inputs.clone(),
+            analog_triggers: self.analog_triggers.clone(),
+            analog_mods: self.analog_mods.clone(),
             gut_max_pressed: self.gut_max_pressed.clone(),
             gut_min_pressed: self.gut_min_pressed.clone(),
             gut_radio_mode: self.gut_radio_mode.clone(),
@@ -153,57 +171,6 @@ impl Engine<Edit> {
             c_multi: self.c_multi.clone(),
             index_delta_bool: self.index_delta_bool.clone(),
             extra_delta_bool: self.extra_delta_bool.clone(),
-        };
-        play.reset_runtime_state();
-        Ok(play)
-    }
-}
-
-impl<Mode> Engine<Mode> {
-    // Clears everything that changes while playing (pressed flags, memories) and resizes it to fit the definition.
-    pub fn reset_runtime_state(&mut self) {
-        let guts_len = self.guts.len();
-        self.gut_holds.reset_runtime_state();
-        for gut in self.guts.iter_mut() {
-            gut.pressed = false;
-            gut.i_mem = 0;
-            gut.x_mem = 0.0;
-        }
-        for set in self.v_multi.iter_mut() {
-            set.reset_runtime_state(guts_len);
-        }
-        for set in self.f_multi.iter_mut() {
-            set.reset_runtime_state(guts_len);
-        }
-        for set in self.c_multi.iter_mut() {
-            set.reset_runtime_state(guts_len);
-        }
-    }
-}
-
-impl HoldBtns {
-    pub(crate) fn reset_runtime_state(&mut self) {
-        self.sustain.pressed = false;
-        self.inv_sustain.pressed = false;
-        self.sostenuto.pressed = false;
-        self.inv_sostenuto.pressed = false;
-    }
-}
-
-#[duplicate_item(
-    SetType    deltafield;
-    [VFSet]    [buttons];
-    [ComboSet] [combos];
-)]
-impl SetType {
-    pub(crate) fn reset_runtime_state(&mut self, guts_len: usize) {
-        self.pressed = vec![false; self.buttons.len()];
-        self.i_mem = vec![0; guts_len];
-        self.x_mem = vec![0.0; guts_len];
-        self.holds.reset_runtime_state();
-        for d in self.deltafield.iter_mut() {
-            d.i_mem = vec![0; guts_len];
-            d.x_mem = vec![0.0; guts_len];
-        }
+        })
     }
 }

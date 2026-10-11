@@ -36,7 +36,6 @@ fn build_read_and_convert_an_instrument() {
     assert_eq!(e.gut_holds().sustain().togs(), &[4]);
     assert_eq!(e.f_multi()[0].name, "Frets");
     assert_eq!(e.f_multi()[0].buttons()[1].i_delta(), &[2, 2]);
-    assert_eq!(e.f_multi()[0].pressed().len(), 2);
 
     assert!(e.validate().is_ok());
     let p: Engine<Play> = e.to_play().unwrap();

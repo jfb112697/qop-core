@@ -13,6 +13,9 @@ macro_rules! getters {
 
 getters!(impl[Mode] Engine<Mode> {
     ref dig_inputs: [Key],
+    ref analog_inputs: [Analog],
+    ref analog_triggers: [AnalogTrigger],
+    ref analog_mods: [AnalogMod],
     ref gut_holds: HoldBtns,
     ref guts: [Gut],
     ref v_multi: [VFSet],
@@ -34,21 +37,19 @@ getters!(impl[] HoldBtns {
 
 getters!(impl[] HoldTog {
     ref togs: [usize],
-    copy pressed: bool,
 });
 
 getters!(impl[] Gut {
     ref togs: [usize],
     ref trnsp_gut: [Trnsp],
-    copy pressed: bool,
-    copy index_out: usize,
+    copy index_out: i32,
+    copy retrigger: bool,
     copy extra_out: f64,
-    copy i_mem: i32,
-    copy x_mem: f64,
 });
 
 getters!(impl[] Trnsp {
     ref triggers: [usize],
+    copy latch: bool,
     copy i_delta: i32,
     copy x_delta: f64,
 });
@@ -57,14 +58,12 @@ getters!(impl[] MulTrnsp {
     ref triggers: [usize],
     ref i_delta: [i32],
     ref x_delta: [f64],
+    copy latch: bool,
 });
 
 getters!(impl[] VFSet {
     ref buttons: [VFBtn],
-    ref pressed: [bool],
     ref trnsp_all: [MulTrnsp],
-    ref i_mem: [i32],
-    ref x_mem: [f64],
     ref holds: HoldBtns,
     copy max_pressed: usize,
     copy min_pressed: usize,
@@ -76,17 +75,12 @@ getters!(impl[] VFBtn {
     ref i_delta: [i32],
     ref x_delta: [f64],
     ref trnsp_one: [MulTrnsp],
-    ref i_mem: [i32],
-    ref x_mem: [f64],
 });
 
 getters!(impl[] ComboSet {
     ref buttons: [ComboTog],
-    ref pressed: [bool],
     ref combos: [Combo],
     ref trnsp_all: [MulTrnsp],
-    ref i_mem: [i32],
-    ref x_mem: [f64],
     ref holds: HoldBtns,
     copy max_pressed: usize,
     copy min_pressed: usize,
@@ -102,6 +96,18 @@ getters!(impl[] Combo {
     ref i_delta: [i32],
     ref x_delta: [f64],
     ref trnsp_one: [MulTrnsp],
-    ref i_mem: [i32],
-    ref x_mem: [f64],
+});
+
+getters!(impl[] AnalogTrigger {
+    ref togs: [usize],
+    copy input: usize,
+    copy low: f64,
+    copy high: f64,
+    copy fast_secs: f64,
+    copy slow_secs: f64,
+});
+
+getters!(impl[] AnalogMod {
+    ref x_delta: [f64],
+    copy input: usize,
 });
