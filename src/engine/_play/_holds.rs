@@ -28,8 +28,8 @@ pub(crate) struct Layer {
     // Active when sostenuto engaged.
     captured: Vec<bool>,
     seq: Vec<u64>,
-    sustain_on: bool,
-    sostenuto_on: bool,
+    pub(crate) sustain_on: bool,
+    pub(crate) sostenuto_on: bool,
 }
 
 impl Layer {

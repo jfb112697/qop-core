@@ -34,7 +34,7 @@ player.key_up(Key::KeyJ);
 let hz = temperament.frequency(index, extra);
 ```
 
-- **Reading**: every definition field has a getter of the same name (`engine.guts()`, `gut.togs()`), generated in `src/engine/_access.rs`. `name` and `description` are plain `pub` fields. `player.voices()` gives what each gut is doing now.
+- **Reading**: every definition field has a getter of the same name (`engine.guts()`, `gut.togs()`), generated in `src/engine/_access.rs`. `name` and `description` are plain `pub` fields. `player.voices()` gives what each gut is doing now. For display, `Player` also exposes `keys_down()`, `analog_values()`, and per-layer state (`f_multi_buttons_active(set)`, `gut_sustain_on()`, `v_multi_trnsp_all_active(set, t)`, ...), generated in `src/engine/_play/_access.rs`.
 - **Writing**: only through `Engine<Edit>` methods. Fields are `pub(crate)` on purpose so outside code cannot break the invariants. A new field needs a getter in `_access.rs` and, if editable, an edit method.
 - **Edit methods return `bool`**: `true` if applied, `false` if rejected (index out of range, unknown key, constraint violated, key already registered). A rejected edit changes nothing, and none of them panic.
 - `Engine<Edit>::validate()` runs every invariant check and `to_play()` calls it. Call `validate()` on anything deserialized before editing it. There is no Play-to-Edit conversion: keep the `Engine<Edit>` and call `to_play()` again.
@@ -57,6 +57,7 @@ let hz = temperament.frequency(index, extra);
 | `src/engine/_edit/_trnsp.rs` | `trnsp_all` / `trnsp_one` transposition edits on sets |
 | `src/engine/_edit/_vfc_sets.rs` | Set, button, and combo insert/remove; delta edits; combo patterns; names; min/max pressed; radio mode |
 | `src/engine/_play.rs` | `Player`, `NoteEvent`, `Voice`, the input methods, and `refresh()` which drives everything else |
+| `src/engine/_play/_access.rs` | Read-only getters for `Player` state |
 | `src/engine/_play/_holds.rs` | `Layer`: pressed/active state for one group, holds, press limits, `LIMIT_POLICY` |
 | `src/engine/_play/_trnsp.rs` | Momentary and latching transposition state |
 | `src/engine/_play/_vfc_sets.rs` | Per-set state and the three ways a set contributes pitch (summed, highest, matching) |

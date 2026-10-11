@@ -416,3 +416,31 @@ fn a_played_note_has_a_frequency_and_presets_round_trip() {
         other => panic!("expected one On event, got {other:?}"),
     }
 }
+
+#[test]
+fn player_state_can_be_read_for_display() {
+    let mut e = with_frets(base());
+    assert!(e.gut_sustain_insert_dig(SPACE));
+    assert!(e.f_multi_insert_trnsp_all_t(0, 0));
+    assert!(e.f_multi_insert_trnsp_all_dig(0, 0, BRACKET));
+    assert!(e.f_multi_trnsp_all_set_latch(0, 0, true));
+    assert!(e.analog_inputs_insert(Analog::MidiPitchBend));
+    let mut p = player(&e);
+    p.key_down(Key::Digit2, None);
+    p.key_down(Key::Space, None);
+    p.key_down(Key::BracketRight, None);
+    p.key_up(Key::BracketRight);
+    p.analog(Analog::MidiPitchBend, 0.25, 0.0);
+
+    assert!(p.keys_down()[D2] && p.keys_down()[SPACE] && !p.keys_down()[BRACKET]);
+    assert_eq!(p.f_multi_buttons_active(0), &[false, true]);
+    assert!(p.gut_sustain_on());
+    assert!(!p.gut_sostenuto_on());
+    assert!(p.f_multi_trnsp_all_active(0, 0));
+    assert_eq!(p.analog_values(), &[0.25]);
+
+    assert!(p.f_multi_buttons_active(9).is_empty());
+    assert!(!p.f_multi_trnsp_all_active(0, 9));
+    assert!(!p.v_multi_sustain_on(0));
+    assert!(!p.gut_trnsp_active(0, 0));
+}
