@@ -3,16 +3,14 @@ pub mod scale_list;
 
 use crate::*;
 use better_default::Default;
-use duplicate::duplicate_item;
 use nestify::nest;
 use serde::{Deserialize, Serialize};
 use std::{fmt::Debug, marker::PhantomData};
-use winit::keyboard::KeyCode;
 
 nest! {
     #[repr(C)]*
     #[derive(Debug, Clone, Default, Serialize, Deserialize)]*
-    pub(crate) struct Temperament<Mode = Edit> {
+    pub struct Temperament<Mode = Edit> {
         pub(crate) _mode: PhantomData<Mode>,
         pub name: String,
         pub description: String,
@@ -54,7 +52,8 @@ impl Temperament<Edit> {
         }
     }
 
-    pub(crate) fn new(
+    /// Panics for `EqualTemperament` and `PrimeLimit` until their interval generation is written.
+    pub fn new(
         name: Option<String>,
         description: Option<String>,
         temperament_type: Option<TemperamentType>,
@@ -87,6 +86,30 @@ impl Temperament<Edit> {
         }
 
         n
+    }
+}
+
+impl<Mode> Temperament<Mode> {
+    pub fn temperament_type(&self) -> &TemperamentType {
+        &self.temperament_type
+    }
+    pub fn reference_note(&self) -> usize {
+        self.reference_note
+    }
+    pub fn tuning_hz(&self) -> f64 {
+        self.tuning_hz
+    }
+    pub fn octave_label(&self) -> i64 {
+        self.octave_label
+    }
+    pub fn octave_scalar_factor(&self) -> f64 {
+        self.octave_scalar_factor
+    }
+    pub fn note_class_set(&self) -> &[String] {
+        &self.note_class_set
+    }
+    pub fn intervals(&self) -> &[f64] {
+        &self.intervals
     }
 }
 

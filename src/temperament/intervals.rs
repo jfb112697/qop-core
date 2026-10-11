@@ -50,9 +50,9 @@ pub fn closest_wiki_microtonal_interval(alpha: f64, beta: f64) -> (usize, usize)
 }
 
 pub struct WikiInterval {
-    name: String,
-    hz_ratio: f64,
-    cents_above_fundamental: f64,
+    pub name: String,
+    pub hz_ratio: f64,
+    pub cents_above_fundamental: f64,
 }
 
 macro_rules! wiki_interval_input {

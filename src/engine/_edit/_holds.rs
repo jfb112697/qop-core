@@ -13,10 +13,13 @@ use duplicate::duplicate_item;
     [inv_sostenuto] [gut_inv_sostenuto_remove_dig]  [togs.retain(|&idx| idx != key_idx_val)]                   ;
 )]
 impl Engine<Edit> {
-    pub fn gut_hold_dig(&mut self, key_idx_val: usize) {
+    pub fn gut_hold_dig(&mut self, key_idx_val: usize) -> bool {
         if key_idx_val < self.dig_inputs.len() {
             let togs = &mut self.gut_holds.holdfield.togs;
             operation;
+            true
+        } else {
+            false
         }
     }
 }
@@ -49,10 +52,13 @@ impl Engine<Edit> {
     [c_multi]  [inv_sostenuto] [c_multi_inv_sostenuto_remove_dig] [togs.retain(|&idx| idx != key_idx_val)]                   ;
 )]
 impl Engine<Edit> {
-    pub fn multi_hold_dig(&mut self, set_idx: usize, key_idx_val: usize) {
+    pub fn multi_hold_dig(&mut self, set_idx: usize, key_idx_val: usize) -> bool {
         if set_idx < self.multifield.len() && key_idx_val < self.dig_inputs.len() {
             let togs = &mut self.multifield[set_idx].holds.holdfield.togs;
             operation;
+            true
+        } else {
+            false
         }
     }
 }

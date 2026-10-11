@@ -1,12 +1,12 @@
 use crate::engine::*;
 use crate::temperament::Temperament;
-use winit::keyboard::KeyCode;
+use crate::key::Key;
 
 fn engine_with_keys() -> Engine<Edit> {
     let mut e: Engine<Edit> = Engine::default();
-    e.dig_inputs_insert_k(KeyCode::KeyA);
-    e.dig_inputs_insert_k(KeyCode::KeyB);
-    e.dig_inputs_insert_k(KeyCode::KeyC);
+    e.dig_inputs_insert_k(Key::KeyA);
+    e.dig_inputs_insert_k(Key::KeyB);
+    e.dig_inputs_insert_k(Key::KeyC);
     e
 }
 

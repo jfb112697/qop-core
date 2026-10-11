@@ -1,21 +1,22 @@
 #![allow(dead_code)]
-mod engine;
-mod temperament;
+pub mod engine;
+pub mod key;
+pub mod temperament;
 
-use better_default::Default;
-use duplicate::duplicate_item;
-use nestify::nest;
+pub use engine::Engine;
+pub use key::Key;
+pub use temperament::Temperament;
+
 use serde::{Deserialize, Serialize};
-use std::{fmt::Debug, marker::PhantomData};
-use winit::keyboard::KeyCode;
+use std::fmt::Debug;
 
 #[repr(C)]
 #[derive(Debug, Clone)]
-pub(crate) struct Edit;
+pub struct Edit;
 
 #[repr(C)]
 #[derive(Debug, Clone)]
-pub(crate) struct Play;
+pub struct Play;
 
 pub trait QopPart<T>: Debug + Clone + Default + Serialize + for<'a> Deserialize<'a> {
     fn handle_engine_output(&self, qop: (usize, f64)) -> T;

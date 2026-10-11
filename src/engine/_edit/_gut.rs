@@ -2,7 +2,7 @@ use crate::engine::{_edit::*, *};
 use duplicate::duplicate_item;
 
 impl Engine<Edit> {
-    pub fn gut_insert_g(&mut self, g_idx: usize) {
+    pub fn gut_insert_g(&mut self, g_idx: usize) -> bool {
         if g_idx <= self.guts.len() {
             self.guts.insert(g_idx, Gut::default());
             self.v_multi
@@ -14,9 +14,12 @@ impl Engine<Edit> {
             self.c_multi
                 .iter_mut()
                 .for_each(|element| element.insert_gut(g_idx));
+            true
+        } else {
+            false
         }
     }
-    pub fn gut_remove_g(&mut self, g_idx: usize) {
+    pub fn gut_remove_g(&mut self, g_idx: usize) -> bool {
         if self.guts.len() > 1 && g_idx < self.guts.len() {
             self.guts.remove(g_idx);
             self.v_multi
@@ -28,55 +31,87 @@ impl Engine<Edit> {
             self.c_multi
                 .iter_mut()
                 .for_each(|element| element.remove_gut(g_idx));
+            true
+        } else {
+            false
         }
     }
-    pub fn gut_insert_dig(&mut self, g_idx: usize, key_idx_val: usize) {
+    pub fn gut_insert_dig(&mut self, g_idx: usize, key_idx_val: usize) -> bool {
         if g_idx < self.guts.len() && key_idx_val < self.dig_inputs.len() {
             if !self.guts[g_idx].togs.contains(&key_idx_val) {
                 self.guts[g_idx].togs.push(key_idx_val)
             };
+            true
+        } else {
+            false
         }
     }
-    pub fn gut_remove_dig(&mut self, g_idx: usize, key_idx_val: usize) {
+    pub fn gut_remove_dig(&mut self, g_idx: usize, key_idx_val: usize) -> bool {
         if g_idx < self.guts.len() && key_idx_val < self.dig_inputs.len() {
             self.guts[g_idx].togs.retain(|&idx| idx != key_idx_val);
+            true
+        } else {
+            false
         }
     }
-    pub fn gut_toggle_radio_mode(&mut self) {
+    pub fn gut_toggle_radio_mode(&mut self) -> bool {
         self.gut_radio_mode = !self.gut_radio_mode;
+        true
     }
-    pub fn gut_insert_trnsp_t(&mut self, g_idx: usize, trnsp_idx: usize) {
+    pub fn gut_insert_trnsp_t(&mut self, g_idx: usize, trnsp_idx: usize) -> bool {
         if g_idx < self.guts.len() && trnsp_idx <= self.guts[g_idx].trnsp_gut.len() {
             let mut n: NewEnginePartParams = NewEnginePartParams::new(&self);
             self.guts[g_idx]
                 .trnsp_gut
                 .insert(trnsp_idx, Trnsp::new(&mut n));
+            true
+        } else {
+            false
         }
     }
-    pub fn gut_remove_trnsp_t(&mut self, g_idx: usize, trnsp_idx: usize) {
+    pub fn gut_remove_trnsp_t(&mut self, g_idx: usize, trnsp_idx: usize) -> bool {
         if g_idx < self.guts.len() && trnsp_idx < self.guts[g_idx].trnsp_gut.len() {
             self.guts[g_idx].trnsp_gut.remove(trnsp_idx);
+            true
+        } else {
+            false
         }
     }
-    pub fn gut_insert_trnsp_dig(&mut self, g_idx: usize, trnsp_idx: usize, key_idx_val: usize) {
+    pub fn gut_insert_trnsp_dig(&mut self, g_idx: usize, trnsp_idx: usize, key_idx_val: usize) -> bool {
         if g_idx < self.guts.len()
             && trnsp_idx < self.guts[g_idx].trnsp_gut.len()
             && key_idx_val < self.dig_inputs.len()
-            && !self.guts[g_idx].trnsp_gut[trnsp_idx]
-                .triggers
-                .contains(&key_idx_val)
         {
-            self.guts[g_idx].trnsp_gut[trnsp_idx]
-                .triggers
-                .push(key_idx_val);
+            let triggers = &mut self.guts[g_idx].trnsp_gut[trnsp_idx].triggers;
+            if !triggers.contains(&key_idx_val) {
+                triggers.push(key_idx_val);
+            }
+            true
+        } else {
+            false
         }
     }
-    pub fn gut_remove_trnsp_dig(&mut self, g_idx: usize, trnsp_idx: usize, key_idx_val: usize) {
+    pub fn gut_remove_trnsp_dig(&mut self, g_idx: usize, trnsp_idx: usize, key_idx_val: usize) -> bool {
         if g_idx < self.guts.len() && trnsp_idx < self.guts[g_idx].trnsp_gut.len() {
             self.guts[g_idx].trnsp_gut[trnsp_idx]
                 .triggers
                 .retain(|&idx| idx != key_idx_val);
+            true
+        } else {
+            false
         }
+    }
+    pub(crate) fn check_pressed_lengths(&self) -> Result<(), String> {
+        for i in 0..self.v_multi.len() {
+            self.v_multi[i].check_pressed_lengths()?;
+        }
+        for i in 0..self.f_multi.len() {
+            self.f_multi[i].check_pressed_lengths()?;
+        }
+        for i in 0..self.c_multi.len() {
+            self.c_multi[i].check_pressed_lengths()?;
+        }
+        Ok(())
     }
     pub(crate) fn check_multi_delta_lengths(&self) -> Result<(), String> {
         for i in 0..self.v_multi.len() {
@@ -98,19 +133,28 @@ impl Engine<Edit> {
     [gut_change_extra_delta_out] [extra_out] [x_del_val] [f64]      [gut_change_max_pressed] [max_val] [gut_max_pressed] [ge(&self.gut_min_pressed)] [gut_trnsp_change_x_deltas] [f64]    [x_delta];
 )]
 impl Engine<Edit> {
-    pub fn gut_change_delta_out(&mut self, g_idx: usize, d_del_val: del_type) {
+    pub fn gut_change_delta_out(&mut self, g_idx: usize, d_del_val: del_type) -> bool {
         if g_idx < self.guts.len() {
             self.guts[g_idx].d_out = d_del_val;
+            true
+        } else {
+            false
         }
     }
-    pub fn gut_change_minmax(&mut self, minmaxval: usize) {
+    pub fn gut_change_minmax(&mut self, minmaxval: usize) -> bool {
         if minmaxval.iscomparedto {
             self.minmax_field = minmaxval;
+            true
+        } else {
+            false
         }
     }
-    pub fn gut_trnsp_change_deltas(&mut self, g_idx: usize, trnsp_idx: usize, d_del_val: d_type) {
+    pub fn gut_trnsp_change_deltas(&mut self, g_idx: usize, trnsp_idx: usize, d_del_val: d_type) -> bool {
         if g_idx < self.guts.len() && trnsp_idx < self.guts[g_idx].trnsp_gut.len() {
             self.guts[g_idx].trnsp_gut[trnsp_idx].d_field = d_del_val;
+            true
+        } else {
+            false
         }
     }
 }
@@ -185,5 +229,38 @@ impl SetType {
             assert_eq_expr!(self.trnsp_all[ta].x_delta.len(), guts_len);
         }
         Ok(())
+    }
+}
+
+impl VFSet {
+    pub(crate) fn check_pressed_lengths(&self) -> Result<(), String> {
+        assert_eq_expr!(self.pressed.len(), self.buttons.len());
+        Ok(())
+    }
+}
+
+impl ComboSet {
+    pub(crate) fn check_pressed_lengths(&self) -> Result<(), String> {
+        assert_eq_expr!(self.pressed.len(), self.buttons.len());
+        for c in 0..self.combos.len() {
+            assert_eq_expr!(self.combos[c].combo.len(), self.buttons.len());
+        }
+        Ok(())
+    }
+}
+
+#[duplicate_item(
+    gut_set_text          textfield;
+    [gut_set_name]        [name];
+    [gut_set_description] [description];
+)]
+impl Engine<Edit> {
+    pub fn gut_set_text(&mut self, g_idx: usize, value: String) -> bool {
+        if g_idx < self.guts.len() {
+            self.guts[g_idx].textfield = value;
+            true
+        } else {
+            false
+        }
     }
 }

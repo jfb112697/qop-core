@@ -1,7 +1,6 @@
 use crate::engine::*;
 use duplicate::duplicate_item;
 use std::cmp::Ordering::{Equal, Greater, Less};
-use winit::keyboard::KeyCode;
 
 macro_rules! assert_lt_expr {
     ($left:expr, $right:expr) => {
@@ -18,9 +17,12 @@ macro_rules! assert_lt_expr {
 }
 
 impl Engine<Edit> {
-    pub fn dig_inputs_insert_k(&mut self, key_code: KeyCode) {
+    pub fn dig_inputs_insert_k(&mut self, key_code: Key) -> bool {
         if !self.dig_inputs.contains(&key_code) {
-            self.dig_inputs.push(key_code)
+            self.dig_inputs.push(key_code);
+            true
+        } else {
+            false
         }
     }
     fn dig_inputs_global_vec_manip(&mut self, operation: impl Fn(&mut Vec<usize>)) {
@@ -44,7 +46,7 @@ impl Engine<Edit> {
             self.c_multi[set].all_dig_idx_vecs(&operation);
         }
     }
-    pub fn dig_inputs_purge_dig(&mut self, key_code: KeyCode) {
+    pub fn dig_inputs_purge_dig(&mut self, key_code: Key) -> bool {
         if let Some(i) = self.dig_inputs.iter().position(|&key| key == key_code) {
             let dig_idx_purge = |key_idx_vec: &mut Vec<usize>| {
                 key_idx_vec.retain_mut(|k: &mut usize| match (*k).cmp(&i) {
@@ -58,9 +60,12 @@ impl Engine<Edit> {
             };
             Engine::dig_inputs_global_vec_manip(self, dig_idx_purge);
             self.dig_inputs.remove(i);
+            true
+        } else {
+            false
         }
     }
-    pub fn dig_inputs_swap_idxs(&mut self, kc1: KeyCode, kc2: KeyCode, swap_all_fields: bool) {
+    pub fn dig_inputs_swap_idxs(&mut self, kc1: Key, kc2: Key, swap_all_fields: bool) -> bool {
         // This function swaps 2 digital input values for 2 existing inputs in the dig_inputs field.
         // swap_all_fields == true -> swaps the nodes of 2 existing keys in all of rest of the Qop's fields,  so all of those affected usize values would be now pointing to the same keys as before.
         // swap_all_fields == false -> leaves all of the rest of the Qop's fields alone, so all of those affected usize values would be now pointing to swapped keys.
@@ -80,9 +85,12 @@ impl Engine<Edit> {
                 };
                 Engine::dig_inputs_global_vec_manip(self, k_idxs_swap);
             }
+            true
+        } else {
+            false
         }
     }
-    pub fn dig_inputs_change_idx_to(&mut self, kc_old: KeyCode, kc_new: KeyCode) {
+    pub fn dig_inputs_change_idx_to(&mut self, kc_old: Key, kc_new: Key) -> bool {
         let i1 = self.dig_inputs.iter().position(|&key| key == kc_old);
         let i2 = self.dig_inputs.iter().position(|&key| key == kc_new);
         if let (Some(i1), Some(i2)) = (i1, i2) {
@@ -96,6 +104,9 @@ impl Engine<Edit> {
                 k_idx_vec.dedup();
             };
             Engine::dig_inputs_global_vec_manip(self, k_idx_update);
+            true
+        } else {
+            false
         }
     }
     pub(crate) fn check_digitalref_invariants(&self) -> Result<(), String> {
