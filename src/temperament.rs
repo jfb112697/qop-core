@@ -52,7 +52,6 @@ impl Temperament<Edit> {
         }
     }
 
-    /// Panics for `EqualTemperament` and `PrimeLimit` until their interval generation is written.
     pub fn new(
         name: Option<String>,
         description: Option<String>,
@@ -65,6 +64,8 @@ impl Temperament<Edit> {
         intervals: Option<Vec<f64>>,
     ) -> Temperament<Edit> {
         let d: Temperament<Edit> = Temperament::default();
+        let octave_factor_given = octave_scalar_factor.is_some();
+        let note_names_given = note_class_set.is_some();
         let mut n: Temperament<Edit> = Temperament {
             _mode: PhantomData,
             name: name.unwrap_or(d.name),
@@ -77,12 +78,20 @@ impl Temperament<Edit> {
             note_class_set: note_class_set.unwrap_or(d.note_class_set),
             intervals: intervals.unwrap_or(d.intervals),
         };
-        
+
         // based on what is present in the input, build the other params from that
         // check for list of parameters in order of precedence
 
         if let Some(interval_list) = n.temperament_type.intervals() {
             n.intervals = interval_list;
+        }
+        if let TemperamentType::EqualTemperament(_, o) = n.temperament_type {
+            if !octave_factor_given && o.is_finite() && o > 0.0 && o != 1.0 {
+                n.octave_scalar_factor = o;
+            }
+        }
+        if !note_names_given && n.note_class_set.len() != n.intervals.len() {
+            n.note_class_set = (0..n.intervals.len()).map(|i| i.to_string()).collect();
         }
 
         n
@@ -111,6 +120,49 @@ impl<Mode> Temperament<Mode> {
     pub fn intervals(&self) -> &[f64] {
         &self.intervals
     }
+
+    // `intervals[k]` is the position of note class k inside one octave, measured in steps of
+    // 1/intervals.len() of that octave, so 12 equal notes are 0.0..=11.0 and `extra` is in the same unit.
+    // An index counts note classes upward; `reference_note` sounds at `tuning_hz`.
+    pub fn frequency(&self, index: usize, extra: f64) -> Option<f64> {
+        let n = self.intervals.len();
+        if n == 0 {
+            return None;
+        }
+        let octaves = (index / n) as f64 - (self.reference_note / n) as f64;
+        let steps = octaves * n as f64 + self.intervals[index % n]
+            - self.intervals[self.reference_note % n]
+            + extra;
+        Some(self.tuning_hz * self.octave_scalar_factor.powf(steps / n as f64))
+    }
+
+    pub fn note_name(&self, index: usize) -> Option<String> {
+        let n = self.intervals.len();
+        if n == 0 || self.note_class_set.len() != n {
+            return None;
+        }
+        let octave = self.octave_label + (index / n) as i64 - (self.reference_note / n) as i64;
+        Some(format!("{}{}", self.note_class_set[index % n], octave))
+    }
+}
+
+impl Temperament<Edit> {
+    pub fn set_tuning_hz(&mut self, tuning_hz: f64) -> bool {
+        if tuning_hz.is_finite() && tuning_hz > 0.0 {
+            self.tuning_hz = tuning_hz;
+            true
+        } else {
+            false
+        }
+    }
+    pub fn set_reference_note(&mut self, reference_note: usize) -> bool {
+        self.reference_note = reference_note;
+        true
+    }
+    pub fn set_octave_label(&mut self, octave_label: i64) -> bool {
+        self.octave_label = octave_label;
+        true
+    }
 }
 
 impl TemperamentType {
@@ -124,9 +176,11 @@ impl TemperamentType {
 
     fn intervals(&self) -> Option<Vec<f64>> {
         match self {
-            TemperamentType::EqualTemperament(_d, _o) => todo!(),
-            TemperamentType::PrimeLimit(_p) => todo!(),
-            TemperamentType::Arbitrary => None,
+            TemperamentType::EqualTemperament(d, _o) if d.is_finite() && *d >= 1.0 => {
+                Some((0..d.round() as usize).map(|i| i as f64).collect())
+            }
+            // A prime limit does not pick out one scale, so the caller supplies the intervals.
+            _ => None,
         }
     }
 }

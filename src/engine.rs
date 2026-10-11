@@ -138,7 +138,7 @@ impl Engine<Edit> {
     pub fn to_play(&self) -> Result<Engine<Play>, String> {
         self.validate()?;
 
-        Ok(Engine {
+        let mut play = Engine {
             _mode: PhantomData,
             name: self.name.clone(),
             description: self.description.clone(),
@@ -153,6 +153,57 @@ impl Engine<Edit> {
             c_multi: self.c_multi.clone(),
             index_delta_bool: self.index_delta_bool.clone(),
             extra_delta_bool: self.extra_delta_bool.clone(),
-        })
+        };
+        play.reset_runtime_state();
+        Ok(play)
+    }
+}
+
+impl<Mode> Engine<Mode> {
+    // Clears everything that changes while playing (pressed flags, memories) and resizes it to fit the definition.
+    pub fn reset_runtime_state(&mut self) {
+        let guts_len = self.guts.len();
+        self.gut_holds.reset_runtime_state();
+        for gut in self.guts.iter_mut() {
+            gut.pressed = false;
+            gut.i_mem = 0;
+            gut.x_mem = 0.0;
+        }
+        for set in self.v_multi.iter_mut() {
+            set.reset_runtime_state(guts_len);
+        }
+        for set in self.f_multi.iter_mut() {
+            set.reset_runtime_state(guts_len);
+        }
+        for set in self.c_multi.iter_mut() {
+            set.reset_runtime_state(guts_len);
+        }
+    }
+}
+
+impl HoldBtns {
+    pub(crate) fn reset_runtime_state(&mut self) {
+        self.sustain.pressed = false;
+        self.inv_sustain.pressed = false;
+        self.sostenuto.pressed = false;
+        self.inv_sostenuto.pressed = false;
+    }
+}
+
+#[duplicate_item(
+    SetType    deltafield;
+    [VFSet]    [buttons];
+    [ComboSet] [combos];
+)]
+impl SetType {
+    pub(crate) fn reset_runtime_state(&mut self, guts_len: usize) {
+        self.pressed = vec![false; self.buttons.len()];
+        self.i_mem = vec![0; guts_len];
+        self.x_mem = vec![0.0; guts_len];
+        self.holds.reset_runtime_state();
+        for d in self.deltafield.iter_mut() {
+            d.i_mem = vec![0; guts_len];
+            d.x_mem = vec![0.0; guts_len];
+        }
     }
 }

@@ -105,3 +105,69 @@ fn winit_key_codes_convert() {
     assert_eq!(Key::from_winit(KeyCode::Semicolon), Some(Key::Semicolon));
     assert_eq!(Key::from_winit(KeyCode::F24), None);
 }
+
+fn close(a: f64, b: f64) -> bool {
+    (a - b).abs() < 1e-6
+}
+
+#[test]
+fn default_temperament_is_twelve_tet_at_a440() {
+    let t = Temperament::new(None, None, None, None, None, None, None, None, None);
+    assert!(close(t.frequency(69, 0.0).unwrap(), 440.0));
+    assert!(close(t.frequency(81, 0.0).unwrap(), 880.0));
+    assert!(close(t.frequency(57, 0.0).unwrap(), 220.0));
+    assert!((t.frequency(60, 0.0).unwrap() - 261.6256).abs() < 1e-3);
+    assert!(close(t.frequency(69, 1.0).unwrap(), t.frequency(70, 0.0).unwrap()));
+    assert_eq!(t.note_name(69).unwrap(), "A4");
+    assert_eq!(t.note_name(60).unwrap(), "C4");
+    assert_eq!(t.note_name(59).unwrap(), "B3");
+}
+
+#[test]
+fn equal_temperament_generates_its_own_intervals() {
+    use qop_core::temperament::TemperamentType;
+    let t = Temperament::new(
+        None, None, Some(TemperamentType::EqualTemperament(19.0, 2.0)), None, None, None, None, None, None,
+    );
+    assert_eq!(t.intervals().len(), 19);
+    assert_eq!(t.note_class_set().len(), 19);
+    let base = t.frequency(69, 0.0).unwrap();
+    assert!(close(base, 440.0));
+    assert!(close(t.frequency(69 + 19, 0.0).unwrap(), 880.0));
+    assert!(close(t.frequency(70, 0.0).unwrap(), 440.0 * 2f64.powf(1.0 / 19.0)));
+
+    let tritave = Temperament::new(
+        None, None, Some(TemperamentType::EqualTemperament(13.0, 3.0)), None, None, None, None, None, None,
+    );
+    assert!(close(tritave.frequency(69 + 13, 0.0).unwrap(), 1320.0));
+}
+
+#[test]
+fn prime_limit_and_arbitrary_keep_the_supplied_intervals() {
+    use qop_core::temperament::TemperamentType;
+    let just = vec![0.0, 3.8631, 7.0196];
+    let t = Temperament::new(
+        None, None, Some(TemperamentType::PrimeLimit(5)), Some(0), None, None, None, None, Some(just.clone()),
+    );
+    assert_eq!(t.intervals(), &just[..]);
+    assert_eq!(t.note_class_set().len(), 3);
+}
+
+#[test]
+fn temperament_setters_reject_bad_values() {
+    let mut t = Temperament::new(None, None, None, None, None, None, None, None, None);
+    assert!(t.set_tuning_hz(432.0));
+    assert!(!t.set_tuning_hz(0.0));
+    assert!(!t.set_tuning_hz(f64::NAN));
+    assert!(close(t.frequency(69, 0.0).unwrap(), 432.0));
+}
+
+#[test]
+fn hold_buttons_can_be_named() {
+    let mut e = two_string_instrument();
+    assert!(e.gut_sustain_set_name("Pedal".to_string()));
+    assert!(e.f_multi_sostenuto_set_description(0, "Middle pedal".to_string()));
+    assert!(!e.f_multi_sostenuto_set_name(5, "x".to_string()));
+    assert_eq!(e.gut_holds().sustain().name, "Pedal");
+    assert_eq!(e.f_multi()[0].holds().sostenuto().description, "Middle pedal");
+}

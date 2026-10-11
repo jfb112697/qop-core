@@ -5,7 +5,7 @@ Core data model for **Qop** ("qwert-o-phone", working name): a configurable inst
 ## Status — read this before assuming anything works
 
 - **Edit side is written and public; Play side is not written.** `Engine<Edit>` has a full set of mutation methods and read accessors. Every file under `src/engine/_play/` is empty (0 bytes), so there is no code yet that turns key presses into notes. `Engine<Play>` can be created and read, nothing more.
-- **`Temperament` only stores data.** It has read accessors but no edit methods and no index-to-frequency lookup. `Temperament::new` panics for `EqualTemperament` and `PrimeLimit` (`TemperamentType::intervals` is `todo!()`).
+- **`Temperament` converts engine output to pitch.** `frequency(index, extra)` returns Hz and `note_name(index)` a label. `EqualTemperament(divisions, octave_factor)` generates its own intervals; `PrimeLimit` and `Arbitrary` use the intervals the caller passes to `new`.
 - **No binary, no examples.** Tests live in `src/engine/_edit/_tests.rs` (crate-internal) and `tests/public_api.rs` (public API only).
 - The `QopPart<T>` trait has no implementors.
 
@@ -25,7 +25,7 @@ Edition 2024. Dependencies are pinned to a major version in `Cargo.toml` and `Ca
 - **Reading**: every field has a getter of the same name (`engine.guts()`, `gut.togs()`, `set.buttons()`), generated in `src/engine/_access.rs`. `name` and `description` are plain `pub` fields.
 - **Writing**: only through `Engine<Edit>` methods. Fields are `pub(crate)` on purpose so outside code cannot break the invariants. A new field needs a getter in `_access.rs` and, if editable, an edit method.
 - **Edit methods return `bool`**: `true` if the edit was applied, `false` if the arguments were rejected (index out of range, unknown key, constraint violated, key already registered). A rejected edit changes nothing.
-- `Engine<Edit>::validate()` runs every invariant check; `to_play()` calls it and returns the `Engine<Play>` copy. There is no Play-to-Edit conversion: keep the `Engine<Edit>` and call `to_play()` again.
+- `Engine<Edit>::validate()` runs every invariant check; `to_play()` calls it and returns an `Engine<Play>` copy with runtime state reset. Call `validate()` on anything deserialized before editing it. There is no Play-to-Edit conversion: keep the `Engine<Edit>` and call `to_play()` again.
 - Engines derive `Serialize` / `Deserialize`; the crate picks no file format.
 
 ## Layout
@@ -45,7 +45,7 @@ Edition 2024. Dependencies are pinned to a major version in `Cargo.toml` and `Ca
 | `src/engine/_edit/_tests.rs` | Regression tests for the edit methods (`#[cfg(test)]`) |
 | `tests/public_api.rs` | Integration tests that use only the public API, as an application would |
 | `src/engine/_play/*` | Empty placeholders mirroring `_edit/` |
-| `src/temperament.rs` | `Temperament<Mode>`: reference note, tuning Hz, octave factor, note names, interval list |
+| `src/temperament.rs` | `Temperament<Mode>`: reference note, tuning Hz, octave factor, note names, interval list, `frequency` and `note_name` |
 | `src/temperament/intervals.rs` | Harmonic helpers and `WIKI_MICROTONAL_INTERVALS` (~315 named ratios) |
 | `src/temperament/scale_list/twelve_tet.rs` | `TWELVE_TET_SCALES`: 1012 named 12-TET scales, 5.8k lines of data. Grep it, don't read it. |
 | `collected_texts.txt` | Raw ratio list the interval table was transcribed from |
@@ -86,12 +86,21 @@ Adding or removing a gut must touch every set (`insert_gut` / `remove_gut`). Rem
 - File and module names start with an underscore (`_edit`, `_gut`).
 - Git history uses auto-generated `modified: path` commit messages; there is no convention to follow.
 
+## Temperament units
+
+These are assumptions read off the defaults (12 notes, `intervals` = 0.0 to 11.0, reference note 69 at 440 Hz). They are not yet confirmed by the author, so check before building on them.
+
+- `intervals[k]` is the position of note class `k` inside one octave, in steps of `1 / intervals.len()` of that octave on a log scale. Twelve equal notes are therefore `0.0..=11.0`, and a just fifth in a 12-note scale is about `7.02`.
+- An engine output index counts note classes upward: `index / len` is the octave, `index % len` the note class. `reference_note` sounds at `tuning_hz`, and one octave multiplies frequency by `octave_scalar_factor`.
+- `extra` (the engine's `f64` output) is in the same step unit as `intervals`, so `frequency(69, 1.0) == frequency(70, 0.0)` in 12-TET.
+- `octave_label` is the printed octave number of the octave containing `reference_note` (69 is "A4").
+
 ## Open issues
 
-- The Play engine is unwritten (see Status). How `v_multi` and `f_multi` differ, and how holds, radio mode, and min/max pressed behave at play time, is the author's design to settle.
-- `TemperamentType::intervals` is `todo!()` for `EqualTemperament` and `PrimeLimit`, and nothing converts an output index to a frequency.
-- Runtime state (`pressed`, `i_mem`, `x_mem`) is stored in the definition structs and is serialized with them. Skipping it on save would break the per-gut length invariant on load, so it needs to move into a separate runtime struct when Play is designed.
-- Hold buttons (`HoldTog`) have `name` / `description` fields but no setter.
+- The Play engine is unwritten (see Status). The author needs to settle: how several pressed buttons in one set combine (which is probably how `v_multi` and `f_multi` differ); how combos match; when a gut sounds and whether a change re-triggers it; what each hold does and what `i_mem` / `x_mem` remember; what radio mode and min/max pressed do at the limit; whether transposition triggers latch; whether a button's keys are any-of or all-of; what `index_delta_bool` / `extra_delta_bool` switch; and what happens when deltas push an index below zero.
+- Every input is on/off. Velocity and continuous controllers (pitch bend, MIDI CC) have no place in the model yet. MIDI notes can already be registered as `Key::Other(n)`.
+- Runtime state (`pressed`, `i_mem`, `x_mem`) still lives in the definition structs and is written out with them. `to_play()` calls `reset_runtime_state()`, so a Play engine always starts clean whatever a saved file held, but the fields are noise in presets until they move to a separate runtime struct.
+- `PrimeLimit(p)` does not generate a scale; a prime limit alone does not pick one.
 - `#[repr(C)]` is applied to structs containing `Vec` and `String`; it does not make them FFI-safe.
 
 ## Things to keep in mind when building on this

@@ -101,3 +101,25 @@ fn temperament_new_falls_back_to_struct_defaults() {
     assert_eq!(t.note_class_set.len(), 12);
     assert_eq!(t.intervals.len(), 12);
 }
+
+#[test]
+fn to_play_starts_from_clean_runtime_state() {
+    let mut e = engine_with_keys();
+    e.v_multi_insert_set(0);
+    e.c_multi_insert_set(0);
+    e.guts[0].pressed = true;
+    e.guts[0].i_mem = 7;
+    e.gut_holds.sustain.pressed = true;
+    e.v_multi[0].pressed = vec![true];
+    e.v_multi[0].i_mem = vec![3];
+    e.v_multi[0].buttons[0].x_mem = vec![1.5];
+    e.c_multi[0].holds.sostenuto.pressed = true;
+    let p = e.to_play().unwrap();
+    assert!(!p.guts[0].pressed);
+    assert_eq!(p.guts[0].i_mem, 0);
+    assert!(!p.gut_holds.sustain.pressed);
+    assert_eq!(p.v_multi[0].pressed, vec![false]);
+    assert_eq!(p.v_multi[0].i_mem, vec![0]);
+    assert_eq!(p.v_multi[0].buttons[0].x_mem, vec![0.0]);
+    assert!(!p.c_multi[0].holds.sostenuto.pressed);
+}
