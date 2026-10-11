@@ -69,9 +69,9 @@ impl Engine<Edit> {
 )]
 impl Engine<Edit> {
     pub fn vf_multi_insert_btn(&mut self, set_idx: usize, btn_idx: usize) {
-        if set_idx < self.multifield.len() && btn_idx < self.multifield[set_idx].buttons.len() {
+        if set_idx < self.multifield.len() && btn_idx <= self.multifield[set_idx].buttons.len() {
             let mut n: NewEnginePartParams = NewEnginePartParams::new(&self);
-            self.multifield[set_idx].buttons.insert(btn_idx, VFBtn::new(&mut n));
+            self.multifield[set_idx].insert_btn(btn_idx, &mut n);
         }
     }
 }
@@ -164,14 +164,14 @@ impl ComboSet {
 
 #[duplicate_item(
     SetType     btn_dig          operation                          ;
-    [VFSet]     [btn_insert_dig] [push(key_idx_val)]                ;
-    [ComboSet]  [btn_insert_dig] [push(key_idx_val)]                ;
-    [VFSet]     [btn_remove_dig] [retain(|&idx| idx != key_idx_val)];
-    [ComboSet]  [btn_remove_dig] [retain(|&idx| idx != key_idx_val)];
+    [VFSet]     [btn_insert_dig] [if !togs.contains(&key_idx_val) { togs.push(key_idx_val) }];
+    [ComboSet]  [btn_insert_dig] [if !togs.contains(&key_idx_val) { togs.push(key_idx_val) }];
+    [VFSet]     [btn_remove_dig] [togs.retain(|&idx| idx != key_idx_val)]                   ;
+    [ComboSet]  [btn_remove_dig] [togs.retain(|&idx| idx != key_idx_val)]                   ;
 )]
 impl SetType {
     pub(crate) fn btn_dig(&mut self, btn_idx: usize, key_idx_val: usize) {
-        self.buttons[btn_idx].togs.operation;
-        self.buttons[btn_idx].togs.dedup();
+        let togs = &mut self.buttons[btn_idx].togs;
+        operation;
     }
 }

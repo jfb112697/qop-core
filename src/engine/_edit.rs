@@ -1,6 +1,8 @@
 mod _dig_inputs;
 mod _gut;
 mod _holds;
+#[cfg(test)]
+mod _tests;
 mod _trnsp;
 mod _vfc_sets;
 

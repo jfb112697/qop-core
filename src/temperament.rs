@@ -65,17 +65,18 @@ impl Temperament<Edit> {
         note_class_set: Option<Vec<String>>,
         intervals: Option<Vec<f64>>,
     ) -> Temperament<Edit> {
+        let d: Temperament<Edit> = Temperament::default();
         let mut n: Temperament<Edit> = Temperament {
             _mode: PhantomData,
-            name: name.unwrap_or_default(),
-            description: description.unwrap_or_default(),
-            temperament_type: temperament_type.unwrap_or_default(),
-            reference_note: reference_note.unwrap_or_default(),
-            tuning_hz: tuning_hz.unwrap_or_default(),
-            octave_label: octave_label.unwrap_or_default(),
-            octave_scalar_factor: octave_scalar_factor.unwrap_or_default(),
-            note_class_set: note_class_set.unwrap_or_default(),
-            intervals: intervals.unwrap_or_default(),
+            name: name.unwrap_or(d.name),
+            description: description.unwrap_or(d.description),
+            temperament_type: temperament_type.unwrap_or(d.temperament_type),
+            reference_note: reference_note.unwrap_or(d.reference_note),
+            tuning_hz: tuning_hz.unwrap_or(d.tuning_hz),
+            octave_label: octave_label.unwrap_or(d.octave_label),
+            octave_scalar_factor: octave_scalar_factor.unwrap_or(d.octave_scalar_factor),
+            note_class_set: note_class_set.unwrap_or(d.note_class_set),
+            intervals: intervals.unwrap_or(d.intervals),
         };
         
         // based on what is present in the input, build the other params from that

@@ -61,6 +61,7 @@ impl Engine<Edit> {
     pub fn gut_insert_trnsp_dig(&mut self, g_idx: usize, trnsp_idx: usize, key_idx_val: usize) {
         if g_idx < self.guts.len()
             && trnsp_idx < self.guts[g_idx].trnsp_gut.len()
+            && key_idx_val < self.dig_inputs.len()
             && !self.guts[g_idx].trnsp_gut[trnsp_idx]
                 .triggers
                 .contains(&key_idx_val)
@@ -94,7 +95,7 @@ impl Engine<Edit> {
 #[duplicate_item(
     gut_change_delta_out         d_out       d_del_val   del_type   gut_change_minmax        minmaxval minmax_field      iscomparedto                gut_trnsp_change_deltas     d_type d_field;
     [gut_change_index_delta_out] [index_out] [i_del_val] [usize]    [gut_change_min_pressed] [min_val] [gut_min_pressed] [le(&self.gut_max_pressed)] [gut_trnsp_change_i_deltas] [i32]    [i_delta];
-    [gut_change_extra_delta_out] [extra_out] [x_del_val] [f64]      [gut_change_max_pressed] [max_val] [gut_max_pressed] [ge(&self.gut_max_pressed)] [gut_trnsp_change_x_deltas] [f64]    [x_delta];
+    [gut_change_extra_delta_out] [extra_out] [x_del_val] [f64]      [gut_change_max_pressed] [max_val] [gut_max_pressed] [ge(&self.gut_min_pressed)] [gut_trnsp_change_x_deltas] [f64]    [x_delta];
 )]
 impl Engine<Edit> {
     pub fn gut_change_delta_out(&mut self, g_idx: usize, d_del_val: del_type) {
