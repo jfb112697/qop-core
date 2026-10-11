@@ -35,6 +35,18 @@ impl Player {
         (index, extra)
     }
 
+    // How loud gut `g` is allowed to be right now, 0.0..=1.0, from the analog levels that have received a value.
+    pub(crate) fn level(&self, g: usize) -> f64 {
+        let mut level = 1.0;
+        for l in self.engine.analog_levels.iter() {
+            if self.analog_seen[l.input] {
+                let depth = l.depth[g];
+                level *= 1.0 - depth + depth * self.analog_values[l.input].clamp(0.0, 1.0);
+            }
+        }
+        level
+    }
+
     // Compares every gut with what it was doing before and appends the events that describe the difference.
     pub(crate) fn emit_changes(&mut self) {
         for g in 0..self.voices.len() {
@@ -43,6 +55,11 @@ impl Player {
             let before = self.voices[g];
             let velocity = before.velocity;
             let on = NoteEvent::On { gut: g, index, extra, velocity };
+            let level = self.level(g);
+
+            if level != before.level {
+                self.events.push(NoteEvent::Level { gut: g, level });
+            }
 
             if sounding && !before.sounding {
                 self.events.push(on);
@@ -56,7 +73,7 @@ impl Player {
                     self.events.push(NoteEvent::Change { gut: g, index, extra });
                 }
             }
-            self.voices[g] = Voice { sounding, index, extra, velocity };
+            self.voices[g] = Voice { sounding, index, extra, velocity, level };
         }
     }
 }

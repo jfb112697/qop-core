@@ -17,6 +17,9 @@ impl Engine<Edit> {
             self.analog_mods
                 .iter_mut()
                 .for_each(|element| element.x_delta.insert(g_idx, 0.0));
+            self.analog_levels
+                .iter_mut()
+                .for_each(|element| element.depth.insert(g_idx, 1.0));
             true
         } else {
             false
@@ -38,6 +41,11 @@ impl Engine<Edit> {
                 .iter_mut()
                 .for_each(|element| {
                     element.x_delta.remove(g_idx);
+                });
+            self.analog_levels
+                .iter_mut()
+                .for_each(|element| {
+                    element.depth.remove(g_idx);
                 });
             true
         } else {

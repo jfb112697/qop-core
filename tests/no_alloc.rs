@@ -47,6 +47,7 @@ fn playing_does_not_allocate() {
     e.analog_trigger_insert_dig(0, 5);
     e.analog_mod_insert(0, 1);
     e.analog_mod_change_x_deltas(0, vec![Some(2.0), Some(2.0)]);
+    e.analog_level_insert(0, 1);
     let mut p = e.to_play().unwrap().into_player();
 
     let mut events = 0usize;

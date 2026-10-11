@@ -43,6 +43,14 @@ nest! {
                 pub(crate) x_delta: Vec<f64>,
             }
         >,
+        pub(crate) analog_levels: Vec<
+            pub struct AnalogLevel {
+                pub name: String,
+                pub description: String,
+                pub(crate) input: usize,
+                pub(crate) depth: Vec<f64>,
+            }
+        >,
         #[default(true)]
         pub(crate) index_delta_bool: bool,
         #[default(true)]
@@ -161,6 +169,7 @@ impl Engine<Edit> {
             analog_inputs: self.analog_inputs.clone(),
             analog_triggers: self.analog_triggers.clone(),
             analog_mods: self.analog_mods.clone(),
+            analog_levels: self.analog_levels.clone(),
             gut_max_pressed: self.gut_max_pressed.clone(),
             gut_min_pressed: self.gut_min_pressed.clone(),
             gut_radio_mode: self.gut_radio_mode.clone(),

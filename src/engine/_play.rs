@@ -21,16 +21,20 @@ use _vfc_sets::SetState;
 pub enum NoteEvent {
     On { gut: usize, index: i32, extra: f64, velocity: f64 },
     Change { gut: usize, index: i32, extra: f64 },
+    // The gut's loudness scale changed. Sent whether or not the gut is sounding; it starts at 1.0.
+    Level { gut: usize, level: f64 },
     Off { gut: usize },
 }
 
-// What a gut is doing now. `velocity` is that of the press that last triggered it.
+// What a gut is doing now. `velocity` is that of the press that last triggered it;
+// `level` is the continuous loudness scale from analog levels. Loudness is velocity * level.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Voice {
     pub sounding: bool,
     pub index: i32,
     pub extra: f64,
     pub velocity: f64,
+    pub level: f64,
 }
 
 // Plays an Engine<Play>: feed it input, read back note events.
@@ -40,6 +44,8 @@ pub struct Player {
     engine: Engine<Play>,
     keys_down: Vec<bool>,
     analog_values: Vec<f64>,
+    // False until the input has sent a value, so a device that is not there does not silence anything.
+    analog_seen: Vec<bool>,
     triggers: Vec<TriggerState>,
     gut_layer: Layer,
     gut_trnsp: Vec<Vec<TrnspState>>,
@@ -65,6 +71,7 @@ impl Player {
         let mut player = Player {
             keys_down: vec![false; engine.dig_inputs.len()],
             analog_values: vec![0.0; engine.analog_inputs.len()],
+            analog_seen: vec![false; engine.analog_inputs.len()],
             triggers: vec![TriggerState::default(); engine.analog_triggers.len()],
             gut_layer: Layer::new(guts_len),
             gut_trnsp: engine
@@ -78,11 +85,11 @@ impl Player {
             voices: engine
                 .guts
                 .iter()
-                .map(|g| Voice { sounding: false, index: g.index_out, extra: g.extra_out, velocity: 1.0 })
+                .map(|g| Voice { sounding: false, index: g.index_out, extra: g.extra_out, velocity: 1.0, level: 1.0 })
                 .collect(),
-            // One key changes each gut at most once, a change is at most Off + On,
+            // One key changes each gut at most once, a change is at most Level + Off + On,
             // and one analog input can press several keys.
-            events: Vec::with_capacity(2 * guts_len * (most_trigger_keys + 1)),
+            events: Vec::with_capacity(3 * guts_len * (most_trigger_keys + 1)),
             seq_counter: 0,
             press_velocity: 1.0,
             engine,
@@ -125,6 +132,7 @@ impl Player {
             return &self.events;
         };
         self.analog_values[a] = value;
+        self.analog_seen[a] = true;
         for t in 0..self.engine.analog_triggers.len() {
             if self.engine.analog_triggers[t].input != a {
                 continue;

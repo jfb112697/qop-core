@@ -1,5 +1,5 @@
 // Plays instruments through the public API and checks the note events that come back.
-use qop_core::NoteEvent::{Change, Off, On};
+use qop_core::NoteEvent::{Change, Level, Off, On};
 use qop_core::{Analog, Edit, Engine, Key, Player, Temperament};
 
 // Key indices in the order `base` registers them.
@@ -443,4 +443,65 @@ fn player_state_can_be_read_for_display() {
     assert!(!p.f_multi_trnsp_all_active(0, 9));
     assert!(!p.v_multi_sustain_on(0));
     assert!(!p.gut_trnsp_active(0, 0));
+}
+
+#[test]
+fn an_analog_level_drives_loudness_continuously() {
+    let mut e = base();
+    assert!(e.analog_inputs_insert(Analog::MidiChannelPressure));
+    assert!(e.analog_level_insert(0, 0));
+    assert!(e.analog_level_change_depths(0, vec![None, Some(0.5)]));
+    let mut p = player(&e);
+
+    // Nothing received from the input yet: full level, so the instrument plays without the device.
+    assert_eq!(p.key_down(Key::KeyJ, None), &[on(0, 40)]);
+    assert_eq!(p.voices()[0].level, 1.0);
+
+    // Gut 0 follows the input fully, gut 1 by half. The held note is not retriggered.
+    assert_eq!(
+        p.analog(Analog::MidiChannelPressure, 0.5, 0.0),
+        &[Level { gut: 0, level: 0.5 }, Level { gut: 1, level: 0.75 }]
+    );
+    assert_eq!(p.analog(Analog::MidiChannelPressure, 0.5, 0.1), &[]);
+    assert_eq!(
+        p.analog(Analog::MidiChannelPressure, 0.0, 0.2),
+        &[Level { gut: 0, level: 0.0 }, Level { gut: 1, level: 0.5 }]
+    );
+    assert!(p.voices()[0].sounding);
+    assert_eq!(p.voices()[0].velocity, 1.0);
+
+    // Values outside 0..=1 are clamped.
+    assert_eq!(
+        p.analog(Analog::MidiChannelPressure, 2.0, 0.3),
+        &[Level { gut: 0, level: 1.0 }, Level { gut: 1, level: 1.0 }]
+    );
+
+    // The level carries over to the next note.
+    p.analog(Analog::MidiChannelPressure, 0.25, 0.4);
+    assert_eq!(p.key_down(Key::KeyK, None), &[on(1, 45)]);
+    assert_eq!(p.voices()[1].level, 0.625);
+}
+
+#[test]
+fn analog_levels_multiply_and_follow_edits() {
+    let mut e = base();
+    assert!(e.analog_inputs_insert(Analog::MidiCc(11)));
+    assert!(e.analog_inputs_insert(Analog::MidiCc(7)));
+    assert!(e.analog_level_insert(0, 0));
+    assert!(e.analog_level_insert(1, 1));
+    assert!(!e.analog_level_insert(0, 9));
+    assert!(!e.analog_level_change_depths(0, vec![Some(1.5), None]));
+    assert!(!e.analog_level_change_depths(0, vec![Some(0.5)]));
+    assert_eq!(e.analog_levels()[0].depth(), &[1.0, 1.0]);
+
+    let mut p = player(&e);
+    p.analog(Analog::MidiCc(11), 0.5, 0.0);
+    assert_eq!(p.analog(Analog::MidiCc(7), 0.5, 0.1), &[Level { gut: 0, level: 0.25 }, Level { gut: 1, level: 0.25 }]);
+
+    assert!(e.gut_insert_g(2));
+    assert_eq!(e.analog_levels()[0].depth().len(), 3);
+    assert!(e.analog_inputs_purge(Analog::MidiCc(11)));
+    assert_eq!(e.analog_levels().len(), 1);
+    assert_eq!(e.analog_levels()[0].input(), 0);
+    assert!(e.validate().is_ok());
 }

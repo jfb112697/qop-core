@@ -30,7 +30,7 @@ for event in player.key_down(Key::KeyJ, None) { ... }  // None = no velocity; pl
 player.key_down(Key::MidiNote(60), Some(0.5));         // MIDI passes its own velocity, 0.0..=1.0
 player.analog(Analog::PadRightTrigger, 0.8, now_secs); // normalized value plus a clock
 player.key_up(Key::KeyJ);
-// NoteEvent::On { gut, index, extra, velocity } | Change { gut, index, extra } | Off { gut }
+// NoteEvent::On { gut, index, extra, velocity } | Change { gut, index, extra } | Level { gut, level } | Off { gut }
 let hz = temperament.frequency(index, extra);
 ```
 
@@ -87,6 +87,7 @@ let hz = temperament.frequency(index, extra);
 - **`radio_mode`, `min_pressed`, `max_pressed`** — limits on simultaneous presses, on the gut layer and per set. `max_pressed == 0` means no limit.
 - **`AnalogTrigger`** — reads one analog input and presses its `togs` keys when the value rises past `high`, with a velocity from how fast it got there from `low`. Releases them when it falls below `low`.
 - **`AnalogMod`** — adds `value * x_delta[gut]` to each gut's `extra` (pitch bend, vibrato).
+- **`AnalogLevel`** — scales each gut's loudness by the input's value, continuously (aftertouch, breath, an expression pedal). `depth[gut]` is `0.0..=1.0`: 1.0 follows the input fully, 0.0 leaves the gut alone.
 - **`i_*` vs `x_*`** — `i` is an integer step (an index into the temperament's notes); `x` is a continuous `f64` offset in the same unit. The engine's per-voice output is the pair `(i32, f64)`.
 
 All state that changes while playing lives in `Player`, never in the definition.
@@ -96,12 +97,12 @@ All state that changes while playing lives in `Player`, never in the definition.
 `validate()` (and therefore `to_play()`) checks all of these except 5, which the edit methods maintain.
 
 1. Every key index (`togs`, `triggers`, hold `togs`, analog trigger `togs`) is `< dig_inputs.len()`.
-2. Every per-gut vector (`i_delta`, `x_delta`, including inside `trnsp_one` / `trnsp_all` and `AnalogMod`) has length `guts.len()`.
+2. Every per-gut vector (`i_delta`, `x_delta`, including inside `trnsp_one` / `trnsp_all` and `AnalogMod`, and `AnalogLevel.depth`) has length `guts.len()`.
 3. `combo.combo.len() == combo_set.buttons.len()`.
-4. Every analog `input` index is `< analog_inputs.len()`; a trigger has `low < high` and `fast_secs < slow_secs`.
+4. Every analog `input` index is `< analog_inputs.len()`; a trigger has `low < high` and `fast_secs < slow_secs`; every level depth is in `0.0..=1.0`.
 5. There is always at least one gut.
 
-Adding or removing a gut must touch every per-gut vector (`insert_gut` / `remove_gut`, and `analog_mods`). Removing a key must renumber every index vec (`dig_inputs_global_vec_manip`). Any new field that stores key indices or per-gut data has to be added to those walkers and to the matching validator.
+Adding or removing a gut must touch every per-gut vector (`insert_gut` / `remove_gut`, `analog_mods`, and `analog_levels`). Removing a key must renumber every index vec (`dig_inputs_global_vec_manip`). Any new field that stores key indices or per-gut data has to be added to those walkers and to the matching validator.
 
 ## Play rules
 
@@ -117,6 +118,7 @@ Each has a test of the same intent in `tests/play.rs`.
 8. **Global switches.** `index_delta_bool == false`: every gut plays its base `index_out`. `extra_delta_bool == false`: `extra` is always `0.0` (no microtones).
 9. **Signed index.** Deltas can take an index below zero. `Temperament` handles negative indices.
 10. **Velocity.** A press that carries a velocity (MIDI) uses it. An `AnalogTrigger` computes one. Anything else plays at `1.0`. A gut keeps the velocity of the press that last triggered it.
+11. **Level.** Each gut has a `level`, `0.0..=1.0`, the product over its analog levels of `1 - depth + depth * value` with `value` clamped to `0.0..=1.0`. A `Level` event is sent whenever it changes, whether or not the gut is sounding, and it never retriggers a note. Loudness is `velocity * level`. An input that has not yet sent a value is skipped, so an instrument still plays at full level when the device is absent.
 
 `Player` must not allocate after construction; `tests/no_alloc.rs` enforces this. All state vectors are sized in `Player::new`, and the event buffer is sized for the worst case there.
 
@@ -150,7 +152,7 @@ Assumptions read off the defaults (12 notes, `intervals` = 0.0 to 11.0, referenc
 ## Open issues
 
 - Several gamepads or MIDI channels at once are not distinguished: `Key` and `Analog` carry no device or channel id. The front end has to route, or use `Other(n)`.
-- An analog input can only pluck (through a trigger) or bend `extra` (through a mod). It cannot scale a button's delta or drive velocity continuously (aftertouch).
+- An analog input can pluck (trigger), bend `extra` (mod), or scale loudness (level). It cannot scale a button's delta.
 - A stolen member (rule 5) does not come back when the newer one is released.
 - `Temperament` has no way to change `intervals`, the note names, or the type after `new`.
 - The `QopPart<T>` trait is unused; `Player` and `Temperament::frequency` do what it describes.

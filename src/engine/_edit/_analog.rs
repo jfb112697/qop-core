@@ -18,11 +18,17 @@ impl Engine<Edit> {
             false
         }
     }
-    // Removing an analog input also removes every trigger and mod that reads it.
+    // Removing an analog input also removes every trigger, mod, and level that reads it.
     pub fn analog_inputs_purge(&mut self, analog: Analog) -> bool {
         if let Some(i) = self.analog_inputs.iter().position(|&a| a == analog) {
             self.analog_triggers.retain(|t| t.input != i);
             self.analog_mods.retain(|m| m.input != i);
+            self.analog_levels.retain(|l| l.input != i);
+            for l in self.analog_levels.iter_mut() {
+                if l.input.cmp(&i) == Greater {
+                    l.input -= 1;
+                }
+            }
             for t in self.analog_triggers.iter_mut() {
                 if t.input.cmp(&i) == Greater {
                     t.input -= 1;
@@ -176,6 +182,63 @@ impl Engine<Edit> {
         }
     }
 
+    // An analog level scales a gut's loudness with the input's value, continuously.
+    // depth 1.0 follows the input fully, 0.0 leaves that gut alone.
+    pub fn analog_level_insert(&mut self, level_idx: usize, input_idx: usize) -> bool {
+        if level_idx <= self.analog_levels.len() && input_idx < self.analog_inputs.len() {
+            self.analog_levels.insert(
+                level_idx,
+                AnalogLevel {
+                    input: input_idx,
+                    depth: vec![1.0; self.guts.len()],
+                    ..Default::default()
+                },
+            );
+            true
+        } else {
+            false
+        }
+    }
+    pub fn analog_level_remove(&mut self, level_idx: usize) -> bool {
+        if level_idx < self.analog_levels.len() {
+            self.analog_levels.remove(level_idx);
+            true
+        } else {
+            false
+        }
+    }
+    pub fn analog_level_set_input(&mut self, level_idx: usize, input_idx: usize) -> bool {
+        if level_idx < self.analog_levels.len() && input_idx < self.analog_inputs.len() {
+            self.analog_levels[level_idx].input = input_idx;
+            true
+        } else {
+            false
+        }
+    }
+    pub fn analog_level_change_depths(&mut self, level_idx: usize, depth_vec: Vec<Option<f64>>) -> bool {
+        if level_idx < self.analog_levels.len()
+            && depth_vec.len() == self.guts.len()
+            && depth_vec.iter().flatten().all(|d| (0.0..=1.0).contains(d))
+        {
+            for (g, &depth) in depth_vec.iter().enumerate() {
+                if let Some(d_val) = depth {
+                    self.analog_levels[level_idx].depth[g] = d_val;
+                }
+            }
+            true
+        } else {
+            false
+        }
+    }
+    pub fn analog_level_set_name(&mut self, level_idx: usize, value: String) -> bool {
+        if level_idx < self.analog_levels.len() {
+            self.analog_levels[level_idx].name = value;
+            true
+        } else {
+            false
+        }
+    }
+
     pub(crate) fn check_analog_invariants(&self) -> Result<(), String> {
         for t in 0..self.analog_triggers.len() {
             assert_expr!(self.analog_triggers[t].input < self.analog_inputs.len());
@@ -185,6 +248,11 @@ impl Engine<Edit> {
         for m in 0..self.analog_mods.len() {
             assert_expr!(self.analog_mods[m].input < self.analog_inputs.len());
             assert_expr!(self.analog_mods[m].x_delta.len() == self.guts.len());
+        }
+        for l in 0..self.analog_levels.len() {
+            assert_expr!(self.analog_levels[l].input < self.analog_inputs.len());
+            assert_expr!(self.analog_levels[l].depth.len() == self.guts.len());
+            assert_expr!(self.analog_levels[l].depth.iter().all(|d| (0.0..=1.0).contains(d)));
         }
         Ok(())
     }

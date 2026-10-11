@@ -16,6 +16,7 @@ getters!(impl[Mode] Engine<Mode> {
     ref analog_inputs: [Analog],
     ref analog_triggers: [AnalogTrigger],
     ref analog_mods: [AnalogMod],
+    ref analog_levels: [AnalogLevel],
     ref gut_holds: HoldBtns,
     ref guts: [Gut],
     ref v_multi: [VFSet],
@@ -109,5 +110,10 @@ getters!(impl[] AnalogTrigger {
 
 getters!(impl[] AnalogMod {
     ref x_delta: [f64],
+    copy input: usize,
+});
+
+getters!(impl[] AnalogLevel {
+    ref depth: [f64],
     copy input: usize,
 });
